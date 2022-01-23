@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <time.h>
+#include <math.h>
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_ttf.h>
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_image.h>
 
-
+// ----------------------------- CONSTANTES E TIPOS ----------------------------------------
 const float FPS = 60;  
 
 const int SCREEN_W = 960;
@@ -14,19 +15,34 @@ const int SCREEN_H = 540;
 
 
 const int VELOCIDADE_NAVE = 6;
-const int TAMANHO_IMAGEM_NAVE = 190;
+const int TAMANHO_ALTURA_NAVE = 90;
+const int TAMANHO_LARGURA_NAVE = 108;
+
+const int RAIO_MAXIMO_TIRO = 15;
+const int TAMANHO_MINIMO_TIRO = 7;
+const int VELOCIDADE_TIRO = 13;
+
+const int VELOCIDADE_BLOCO = 3;
 
 ALLEGRO_COLOR COR_CENARIO;
 
 typedef struct Circulo {
 	int xCentro, yCentro;
-	int raio;
+	float raio;
 } Circulo;
 
 typedef struct Retangulo {
 	int x, y;
 	int largura, altura;
 } Retangulo;
+
+typedef struct Tiro {
+	int xCentro, yCentro;
+	float raio;
+	int disparado;
+	int carregando;
+	ALLEGRO_COLOR cor;
+} Tiro;
 
 typedef struct Nave {
 	int x, y;
@@ -35,6 +51,7 @@ typedef struct Nave {
 	int largura, altura;
 	ALLEGRO_BITMAP *imagem;
 	Circulo hitbox;
+	Tiro tiro;
 } Nave;
 
 typedef struct Bloco {
@@ -43,13 +60,45 @@ typedef struct Bloco {
 	ALLEGRO_COLOR cor;
 } Bloco;
 
+
+
 void initGlobais(){
 	COR_CENARIO = al_map_rgb(41,33,50);
 }
 
+
+
+
+
+
+
+// ------------------------- funcoes de inicializacao ----------------------------
+
+
+
+
+
+
+void atualizaHitboxNave(Nave * nave){
+	nave->hitbox.raio = nave->largura < nave->altura ? (nave->largura / 2) : (nave->altura / 2);
+	nave->hitbox.xCentro = nave->x + (nave->largura / 2);
+	nave->hitbox.yCentro = nave->y + (nave->altura / 2);
+}
+
+void initTiro(Nave * nave){
+	nave->tiro.xCentro = nave->x + nave->largura;
+	nave->tiro.yCentro = nave->y + (nave->altura / 2);
+	nave->tiro.raio = 0;
+	nave->tiro.disparado = 0;
+	nave->tiro.carregando = 0;
+
+	nave->tiro.cor = al_map_rgb(255,0,0);
+}
+
+
 void initNave(Nave * nave){
-	nave->largura = 108;
-	nave->altura = 90;
+	nave->largura = TAMANHO_LARGURA_NAVE;
+	nave->altura = TAMANHO_ALTURA_NAVE;
 
 	nave->x = 10 + nave->largura;
 	nave->y = SCREEN_H/2;
@@ -60,23 +109,40 @@ void initNave(Nave * nave){
 
 	nave->imagem = al_load_bitmap("swordfish.png");
 
-	nave->hitbox.raio = nave->largura < nave->altura ? (nave->largura / 2) : (nave->altura / 2);
-	nave->hitbox.xCentro = nave->x + (nave->largura / 2);
-	nave->hitbox.yCentro = nave->y + (nave->altura / 2);
-
+	atualizaHitboxNave(nave);
+	initTiro(nave);
 }
 
 
 void initBloco(Bloco * bloco){
-	bloco->x = ( 1 * SCREEN_W ); //+ rand() % (SCREEN_W);
+	bloco->x = ( 3 * SCREEN_W ) + rand() % (SCREEN_W); 
 	bloco->y = rand() % ( 4 * SCREEN_H /5);
 	bloco->largura =  SCREEN_W + rand() % (SCREEN_W); 
 	bloco->altura = SCREEN_H/5 +  rand() % (2 * SCREEN_H/5);
 	bloco->cor = al_map_rgb( 255,255,255);
 }
 
+
+
+
+
+
+
+
+// --------------------------- Funcoes de Desenho -------------------------
+
+
+
+
+
+
+
 void desenhaCenario() {
 	al_clear_to_color(COR_CENARIO);
+}
+
+void desenhaTiro(Tiro tiro){
+	al_draw_filled_circle(tiro.xCentro, tiro.yCentro, tiro.raio, tiro.cor );
 }
 
 void desenhaNave(Nave nave){
@@ -87,10 +153,40 @@ void desenhaNave(Nave nave){
 		nave.largura,nave.altura,
 		0
 	);
+
+	desenhaTiro(nave.tiro);
 }
 
 void desenhaBloco(Bloco bloco){
 	al_draw_filled_rectangle(bloco.x, bloco.y, bloco.x + bloco.largura, bloco.y + bloco.altura, bloco.cor );
+}
+
+
+
+
+
+
+// --------------------- Funções de Atualizacao -----------------------------
+
+
+
+
+
+
+void atualizaTiro(Nave * nave){
+	if(nave->tiro.carregando && nave->tiro.raio <= RAIO_MAXIMO_TIRO ){
+		if(nave->tiro.raio == 0){
+			nave->tiro.raio += TAMANHO_MINIMO_TIRO;
+		}
+		nave->tiro.raio += 0.1;
+	} 
+
+	if(nave->tiro.disparado){
+		nave->tiro.xCentro += VELOCIDADE_TIRO;
+	} else {
+		nave->tiro.xCentro = nave->x + nave->largura;
+		nave->tiro.yCentro = nave->y + (nave->altura / 2);
+	}
 }
 
 void atualizaNave(Nave * nave){
@@ -110,30 +206,214 @@ void atualizaNave(Nave * nave){
 	} else {
 		nave->y += (nave->dirY * nave->velocidade);
 	}
+
+	atualizaHitboxNave(nave);
+	atualizaTiro(nave);
 		
 }
 
 void atualizaBloco(Bloco * bloco){
-	bloco->x -= 3;
+	bloco->x -= VELOCIDADE_BLOCO;
 
-	if( ( bloco->x + bloco->largura)  < 0 ){
+	if( (bloco->x + bloco->largura)  < 0 ){
 		initBloco(bloco);
 	}
 }
 
 
+
+
+
+
+
+// --------------------------- funcoes de destruicao -------------------
+
+
+
+
+
+
+void destroiTiro(Nave * nave){
+	initTiro(nave);
+}
+
+
+
+
+
+
+
+// ----------------------------- funcoes de colisão -------------------------
+
+Retangulo criaRetangulo(int x, int y, int largura, int altura){
+	Retangulo retangulo;
+	retangulo.x = x;
+	retangulo.y = y;
+	retangulo.largura = largura;
+	retangulo.altura = altura;
+
+	return retangulo;
+}
+
+Circulo criaCirculo(int xCentro, int yCentro, float raio){
+	Circulo circulo;
+	circulo.xCentro = xCentro;
+	circulo.yCentro = yCentro;
+	circulo.raio = raio;
+
+	return circulo;
+}
+
+
+float calculaDistanciaPontos(int xPrimeiro, int yPrimeiro, int xSegundo, int ySegundo){
+	int distanciaX = xPrimeiro - xSegundo;
+	int distanciaY = yPrimeiro - ySegundo;
+
+	return sqrt( pow(distanciaX,2) + pow(distanciaY,2));
+}
+
 int validaColisaoCirculoRetangulo(Circulo circulo, Retangulo retangulo){
+	// valida colisao acima e abaixo
+	if(circulo.xCentro >= retangulo.x && circulo.xCentro <= retangulo.x + retangulo.largura){
+		if( circulo.yCentro + circulo.raio >= retangulo.y && 
+			circulo.yCentro - circulo.raio <= retangulo.y + retangulo.altura ){
+			return 1;
+			
+		}
+	}
+
+	// valida colisao direita e esquerda
+	if(circulo.yCentro >= retangulo.y && circulo.yCentro <= retangulo.y + retangulo.altura){
+		if(circulo.xCentro + circulo.raio >= retangulo.x &&
+			circulo.xCentro - circulo.raio <= retangulo.x + retangulo.largura ){
+			return 1;
+		}
+	}
+	
+	
+	// Acho q Se eu não verificar a colisão dos cantos, a hitbox fica mais realista em relação à imagem usada
+	// valida colisao canto superior esquerdo
+	if( calculaDistanciaPontos(circulo.xCentro, circulo.yCentro, retangulo.x, retangulo.y) <= circulo.raio){
+		return 1;
+	}
+
+	// valida colisao canto superior direito
+	if( calculaDistanciaPontos(circulo.xCentro, circulo.yCentro, retangulo.x + retangulo.largura, retangulo.y) <= circulo.raio){
+		return 1;
+	}
+
+	// valida colisao canto inferior esquerdo
+	if( calculaDistanciaPontos(circulo.xCentro, circulo.yCentro, retangulo.x, retangulo.y + retangulo.altura) <= circulo.raio){
+		return 1;
+	}
+
+	// valida colisao canto inferior direito
+	if( calculaDistanciaPontos(circulo.xCentro, circulo.yCentro, retangulo.x + retangulo.largura, retangulo.y + retangulo.altura) <= circulo.raio){
+		return 1;
+	}
+
+	
+	return 0;
 
 }
-int  validaColisaoNaveBloco(Nave nave, Bloco bloco){
+
+int  validaColisaoNave(Nave nave, Bloco bloco){
+	Retangulo hitboxBloco;
+	hitboxBloco = criaRetangulo( bloco.x, bloco.y, bloco.largura, bloco.altura);
+	
+	return validaColisaoCirculoRetangulo(nave.hitbox, hitboxBloco);
+
+}
+
+void validaColisaoTiro(Nave * nave, Bloco bloco){
+	// valida colisao tiro x Tela
+	if(nave->tiro.xCentro > SCREEN_W){
+		destroiTiro(nave);
+	}
+
+  	Retangulo hitboxBloco;
+	hitboxBloco = criaRetangulo( bloco.x, bloco.y, bloco.largura, bloco.altura);
+
+	Circulo hitboxTiro;
+	hitboxTiro = criaCirculo(nave->tiro.xCentro, nave->tiro.yCentro, nave->tiro.raio);
+
+	// valida colisao tiro x Bloco
+	if(validaColisaoCirculoRetangulo(hitboxTiro, hitboxBloco )){
+		destroiTiro(nave);
+	}
+
+
+}
+
+
+
+
+
+// --------------------------- funções de evento ------------------------
+
+
+
+
+
+
+
+void manipulaEventoMovimentacaoNave( int tipoEvento, int teclaEvento , Nave * nave ){
+	if(tipoEvento == ALLEGRO_EVENT_KEY_DOWN){
+		switch(teclaEvento){
+			case ALLEGRO_KEY_W:
+				nave->dirY--;
+			break;
+			case ALLEGRO_KEY_S:
+				nave->dirY++;
+			break;
+			case ALLEGRO_KEY_A:
+				nave->dirX--;
+			break;
+			case ALLEGRO_KEY_D:
+				nave->dirX++;
+			break;
+		}
+	} else if(tipoEvento == ALLEGRO_EVENT_KEY_UP) {
+		switch(teclaEvento){
+			case ALLEGRO_KEY_W:
+				nave->dirY++;
+			break;
+			case ALLEGRO_KEY_S:
+				nave->dirY--;
+			break;
+			case ALLEGRO_KEY_A:
+				nave->dirX++;
+			break;
+			case ALLEGRO_KEY_D:
+				nave->dirX--;
+			break;
+		}
+	}
+}
 	
 
+void manipulaEventoTiro(int tipoEvento, int teclaEvento,  Nave * nave){
+	if(tipoEvento == ALLEGRO_EVENT_KEY_DOWN &&  teclaEvento == ALLEGRO_KEY_SPACE && nave->tiro.disparado == 0 ){
+		nave->tiro.carregando = 1;
+	} else if(tipoEvento == ALLEGRO_EVENT_KEY_UP &&  teclaEvento == ALLEGRO_KEY_SPACE && nave->tiro.carregando == 1) {
+		nave->tiro.carregando = 0;
+		nave->tiro.disparado = 1;
+	}
+}
 
-
+void manipulaEventoTeclado( int tipoEvento, int teclaEvento,  Nave * nave ){
+	manipulaEventoMovimentacaoNave(tipoEvento, teclaEvento, nave);
+	manipulaEventoTiro(tipoEvento, teclaEvento, nave);
 }
 
 
- 
+
+
+// ------------------------------ jogo -------------------------------
+
+
+
+
 int main(int argc, char **argv){
 	srand(time(NULL));
 	ALLEGRO_DISPLAY *display = NULL;
@@ -245,7 +525,8 @@ int main(int argc, char **argv){
 			desenhaNave(nave);
 			desenhaBloco(bloco);
 
-			playing = !validaColisaoNaveBloco(nave, bloco); 
+			playing = !validaColisaoNave(nave, bloco); 
+			validaColisaoTiro(&nave, bloco);
 			//atualiza a tela (quando houver algo para mostrar)
 			al_flip_display();
 			
@@ -256,38 +537,10 @@ int main(int argc, char **argv){
 		}
 		
 		//se o tipo de evento for um pressionar de uma tecla
-		else if(ev.type == ALLEGRO_EVENT_KEY_DOWN) {
-			switch(ev.keyboard.keycode){
-				case ALLEGRO_KEY_W:
-					nave.dirY--;
-				break;
-				case ALLEGRO_KEY_S:
-					nave.dirY++;
-				break;
-				case ALLEGRO_KEY_A:
-					nave.dirX--;
-				break;
-				case ALLEGRO_KEY_D:
-					nave.dirX++;
-				break;
-			}
+		else if(ev.type == ALLEGRO_EVENT_KEY_DOWN || ev.type == ALLEGRO_EVENT_KEY_UP ) {
+			manipulaEventoTeclado(ev.type, ev.keyboard.keycode,&nave );
 		}
-		else if(ev.type == ALLEGRO_EVENT_KEY_UP) {
-			switch(ev.keyboard.keycode){
-				case ALLEGRO_KEY_W:
-					nave.dirY++;
-				break;
-				case ALLEGRO_KEY_S:
-					nave.dirY--;
-				break;
-				case ALLEGRO_KEY_A:
-					nave.dirX++;
-				break;
-				case ALLEGRO_KEY_D:
-					nave.dirX--;
-				break;
-			}
-		}
+
 
 	} //fim do while
      
