@@ -24,6 +24,11 @@ const int VELOCIDADE_TIRO = 13;
 
 const int VELOCIDADE_BLOCO = 3;
 
+const int QUANTIDADE_INIMIGOS = 15;
+const int VELOCIDADE_MAXIMA_INIMIGO = 10;
+const int RAIO_MAXIMO_INIMIGO = 50;
+const int RAIO_MINIMO_INIMIGO = 15;
+
 ALLEGRO_COLOR COR_CENARIO;
 
 typedef struct Circulo {
@@ -59,6 +64,13 @@ typedef struct Bloco {
 	int largura, altura;
 	ALLEGRO_COLOR cor;
 } Bloco;
+
+typedef struct Inimigo {
+	int xCentro, yCentro;
+	int velocidade;
+	float raio;
+	ALLEGRO_COLOR cor;
+} Inimigo;
 
 
 
@@ -115,15 +127,31 @@ void initNave(Nave * nave){
 
 
 void initBloco(Bloco * bloco){
-	bloco->x = ( 3 * SCREEN_W ) + rand() % (SCREEN_W); 
+	bloco->x = ( 3 * SCREEN_W ) + (rand() % SCREEN_W); 
 	bloco->y = rand() % ( 4 * SCREEN_H /5);
 	bloco->largura =  SCREEN_W + rand() % (SCREEN_W); 
 	bloco->altura = SCREEN_H/5 +  rand() % (2 * SCREEN_H/5);
 	bloco->cor = al_map_rgb( 255,255,255);
 }
 
+void initInimigo(Inimigo * inimigo){
+	inimigo->raio = (rand() % RAIO_MAXIMO_INIMIGO) + RAIO_MINIMO_INIMIGO; 
 
+	int diametro = inimigo->raio * 2;
+	inimigo->xCentro = ( 2 * SCREEN_W ) + rand() % (SCREEN_W); 
+	inimigo->yCentro = inimigo->raio +  (rand() % (SCREEN_H - diametro));
 
+	inimigo->cor = al_map_rgb(rand(),rand(),rand());
+
+	inimigo->velocidade = rand() % VELOCIDADE_MAXIMA_INIMIGO + 1;
+}
+
+void initInimigos(Inimigo inimigos[QUANTIDADE_INIMIGOS]){
+	int i;
+	for(i=0; i< QUANTIDADE_INIMIGOS; i++){
+		initInimigo(&inimigos[i]);
+	}
+}
 
 
 
@@ -161,7 +189,16 @@ void desenhaBloco(Bloco bloco){
 	al_draw_filled_rectangle(bloco.x, bloco.y, bloco.x + bloco.largura, bloco.y + bloco.altura, bloco.cor );
 }
 
+void desenhaInimigo(Inimigo inimigo){
+	al_draw_filled_circle(inimigo.xCentro, inimigo.yCentro, inimigo.raio, inimigo.cor );
+}
 
+void desenhaInimigos(Inimigo inimigos[QUANTIDADE_INIMIGOS]){
+	int i;
+	for(i=0; i< QUANTIDADE_INIMIGOS; i++){
+		desenhaInimigo(inimigos[i]);
+	}
+}
 
 
 
@@ -220,7 +257,16 @@ void atualizaBloco(Bloco * bloco){
 	}
 }
 
+void atualizaInimigo(Inimigo * inimigo){
+	inimigo->xCentro -= inimigo->velocidade;
+}
 
+void atualizaInimigos(Inimigo inimigos[QUANTIDADE_INIMIGOS]){
+	int i;
+	for(i=0; i< QUANTIDADE_INIMIGOS; i++){
+		atualizaInimigo(&inimigos[i]);
+	}
+}
 
 
 
@@ -503,6 +549,9 @@ int main(int argc, char **argv){
 	Bloco bloco;
 	initBloco(&bloco);
 
+	Inimigo inimigos[QUANTIDADE_INIMIGOS];
+	initInimigos(inimigos);
+
 
 
 	//inicia o temporizador
@@ -520,10 +569,13 @@ int main(int argc, char **argv){
 			desenhaCenario();
 			
 			atualizaNave(&nave);
-			atualizaBloco(&bloco);
-			
 			desenhaNave(nave);
+
+			atualizaBloco(&bloco);
 			desenhaBloco(bloco);
+
+			atualizaInimigos(inimigos);
+			desenhaInimigos(inimigos);
 
 			playing = !validaColisaoNave(nave, bloco); 
 			validaColisaoTiro(&nave, bloco);
