@@ -156,6 +156,26 @@ void initInimigos(Inimigo inimigos[QUANTIDADE_INIMIGOS]){
 
 
 
+// --------------------------- funcoes de destruicao -------------------
+
+
+
+
+
+
+void destroiTiro(Nave * nave){
+	initTiro(nave);
+}
+
+void destroiInimigo(Inimigo * inimigo){
+	initInimigo(inimigo);
+}
+
+
+
+
+
+
 
 // --------------------------- Funcoes de Desenho -------------------------
 
@@ -258,7 +278,11 @@ void atualizaBloco(Bloco * bloco){
 }
 
 void atualizaInimigo(Inimigo * inimigo){
+	if(inimigo->xCentro + inimigo->raio <= 0){
+		destroiInimigo(inimigo);
+	}
 	inimigo->xCentro -= inimigo->velocidade;
+
 }
 
 void atualizaInimigos(Inimigo inimigos[QUANTIDADE_INIMIGOS]){
@@ -267,22 +291,6 @@ void atualizaInimigos(Inimigo inimigos[QUANTIDADE_INIMIGOS]){
 		atualizaInimigo(&inimigos[i]);
 	}
 }
-
-
-
-
-
-// --------------------------- funcoes de destruicao -------------------
-
-
-
-
-
-
-void destroiTiro(Nave * nave){
-	initTiro(nave);
-}
-
 
 
 
@@ -363,15 +371,37 @@ int validaColisaoCirculoRetangulo(Circulo circulo, Retangulo retangulo){
 
 }
 
-int  validaColisaoNave(Nave nave, Bloco bloco){
+int validaColisaoCirculos(Circulo primeiro, Circulo segundo){
+	 return calculaDistanciaPontos(primeiro.xCentro, primeiro.yCentro, segundo.xCentro, segundo.yCentro) <= primeiro.raio + segundo.raio;
+}
+
+int validaColisaoCirculoInimigos(Circulo circulo, Inimigo inimigos[]){
+		Circulo hitboxInimigo;
+		int i;
+		for(i=0; i < QUANTIDADE_INIMIGOS; i++ ){
+			hitboxInimigo = criaCirculo(inimigos[i].xCentro, inimigos[i].yCentro, inimigos[i].raio);
+			if( validaColisaoCirculos(circulo, hitboxInimigo)){
+				destroiInimigo(&inimigos[i]);
+				return 1;
+			}
+		}
+
+		return 0;
+}
+
+int  validaColisaoNave(Nave nave, Bloco bloco, Inimigo inimigos[]){
 	Retangulo hitboxBloco;
 	hitboxBloco = criaRetangulo( bloco.x, bloco.y, bloco.largura, bloco.altura);
 	
-	return validaColisaoCirculoRetangulo(nave.hitbox, hitboxBloco);
+	return validaColisaoCirculoRetangulo(nave.hitbox, hitboxBloco) || validaColisaoCirculoInimigos(nave.hitbox, inimigos);
 
 }
 
-void validaColisaoTiro(Nave * nave, Bloco bloco){
+void validaColisaoTiro(Nave * nave, Bloco bloco, Inimigo inimigos[]){
+	if(!nave->tiro.disparado){
+		return;
+	}
+
 	// valida colisao tiro x Tela
 	if(nave->tiro.xCentro > SCREEN_W){
 		destroiTiro(nave);
@@ -388,6 +418,11 @@ void validaColisaoTiro(Nave * nave, Bloco bloco){
 		destroiTiro(nave);
 	}
 
+	if( validaColisaoCirculoInimigos(hitboxTiro, inimigos)){
+		if( nave->tiro.raio < RAIO_MAXIMO_TIRO ){
+			destroiTiro(nave);
+		}
+	}
 
 }
 
@@ -459,7 +494,10 @@ void manipulaEventoTeclado( int tipoEvento, int teclaEvento,  Nave * nave ){
 
 
 
-
+// TODOs
+// colisao entre inimigos
+// colisao entre inimigo e bloco
+// testar interações nave tiro e inimigos
 int main(int argc, char **argv){
 	srand(time(NULL));
 	ALLEGRO_DISPLAY *display = NULL;
@@ -577,8 +615,8 @@ int main(int argc, char **argv){
 			atualizaInimigos(inimigos);
 			desenhaInimigos(inimigos);
 
-			playing = !validaColisaoNave(nave, bloco); 
-			validaColisaoTiro(&nave, bloco);
+			playing = !validaColisaoNave(nave, bloco, inimigos); 
+			validaColisaoTiro(&nave, bloco, inimigos);
 			//atualiza a tela (quando houver algo para mostrar)
 			al_flip_display();
 			
