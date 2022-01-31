@@ -22,9 +22,9 @@ const int RAIO_MAXIMO_TIRO = 15;
 const int TAMANHO_MINIMO_TIRO = 7;
 const int VELOCIDADE_TIRO = 13;
 
-const int VELOCIDADE_BLOCO = 3;
+const int VELOCIDADE_BLOCO = 2;
 
-const int QUANTIDADE_INIMIGOS = 15;
+const int QUANTIDADE_INIMIGOS = 20;
 const int VELOCIDADE_MAXIMA_INIMIGO = 10;
 const int RAIO_MAXIMO_INIMIGO = 50;
 const int RAIO_MINIMO_INIMIGO = 15;
@@ -66,6 +66,7 @@ typedef struct Bloco {
 } Bloco;
 
 typedef struct Inimigo {
+	int id;
 	int xCentro, yCentro;
 	int velocidade;
 	float raio;
@@ -127,14 +128,16 @@ void initNave(Nave * nave){
 
 
 void initBloco(Bloco * bloco){
-	bloco->x = ( 3 * SCREEN_W ) + (rand() % SCREEN_W); 
+	bloco->x = ( 2.5 * SCREEN_W ) + (rand() % SCREEN_W); 
 	bloco->y = rand() % ( 4 * SCREEN_H /5);
-	bloco->largura =  SCREEN_W + rand() % (SCREEN_W); 
+	bloco->largura =  (1.5 * SCREEN_W) + rand() % (SCREEN_W); 
 	bloco->altura = SCREEN_H/5 +  rand() % (2 * SCREEN_H/5);
 	bloco->cor = al_map_rgb( 255,255,255);
 }
 
-void initInimigo(Inimigo * inimigo){
+void initInimigo(Inimigo * inimigo,  int id){
+	inimigo->id = id;
+
 	inimigo->raio = (rand() % RAIO_MAXIMO_INIMIGO) + RAIO_MINIMO_INIMIGO; 
 
 	int diametro = inimigo->raio * 2;
@@ -149,7 +152,7 @@ void initInimigo(Inimigo * inimigo){
 void initInimigos(Inimigo inimigos[QUANTIDADE_INIMIGOS]){
 	int i;
 	for(i=0; i< QUANTIDADE_INIMIGOS; i++){
-		initInimigo(&inimigos[i]);
+		initInimigo(&inimigos[i], i);
 	}
 }
 
@@ -168,7 +171,7 @@ void destroiTiro(Nave * nave){
 }
 
 void destroiInimigo(Inimigo * inimigo){
-	initInimigo(inimigo);
+	initInimigo(inimigo, inimigo->id);
 }
 
 
@@ -219,6 +222,7 @@ void desenhaInimigos(Inimigo inimigos[QUANTIDADE_INIMIGOS]){
 		desenhaInimigo(inimigos[i]);
 	}
 }
+
 
 
 
@@ -298,6 +302,12 @@ void atualizaInimigos(Inimigo inimigos[QUANTIDADE_INIMIGOS]){
 
 
 // ----------------------------- funcoes de colisão -------------------------
+
+
+
+
+
+
 
 Retangulo criaRetangulo(int x, int y, int largura, int altura){
 	Retangulo retangulo;
@@ -389,6 +399,22 @@ int validaColisaoCirculoInimigos(Circulo circulo, Inimigo inimigos[]){
 		return 0;
 }
 
+int validaColisaoRetanguloInimigos(Retangulo retangulo, Inimigo inimigos[]){
+		Circulo hitboxInimigo;
+		int i;
+		for(i=0; i < QUANTIDADE_INIMIGOS; i++ ){
+			hitboxInimigo = criaCirculo(inimigos[i].xCentro, inimigos[i].yCentro, inimigos[i].raio);
+			if( validaColisaoCirculoRetangulo(hitboxInimigo, retangulo)){
+				destroiInimigo(&inimigos[i]);
+				return 1;
+			}
+		}
+
+		return 0;
+}
+
+
+
 int  validaColisaoNave(Nave nave, Bloco bloco, Inimigo inimigos[]){
 	Retangulo hitboxBloco;
 	hitboxBloco = criaRetangulo( bloco.x, bloco.y, bloco.largura, bloco.altura);
@@ -423,6 +449,43 @@ void validaColisaoTiro(Nave * nave, Bloco bloco, Inimigo inimigos[]){
 			destroiTiro(nave);
 		}
 	}
+
+}
+
+int validaColisaoInimigo(Inimigo primeiro , Inimigo segundo){
+	Circulo hitboxprimeiro, hitboxSegundo;
+
+	if(primeiro.id == segundo.id){
+		return 0;
+	}
+
+	hitboxprimeiro = criaCirculo(primeiro.xCentro, primeiro.yCentro, primeiro.raio);
+	hitboxSegundo = criaCirculo(segundo.xCentro, segundo.yCentro, segundo.raio);
+
+	return validaColisaoCirculos(hitboxprimeiro, hitboxSegundo);
+}
+
+void validaColisaoEntreInimigos(Inimigo inimigos[]){
+	Circulo hitboxInimigo;
+	int i, j;
+	
+	for(i=0; i < QUANTIDADE_INIMIGOS; i++ ){
+		for(j=0; j < QUANTIDADE_INIMIGOS; j++ ){
+			if(validaColisaoInimigo(inimigos[i], inimigos[j])){
+				destroiInimigo(&inimigos[i]);
+				destroiInimigo(&inimigos[j]);
+			}
+		}
+	}
+}
+
+void validaColisaoInimigos(Inimigo inimigos[], Bloco bloco){
+	Retangulo hitboxBloco;
+	hitboxBloco = criaRetangulo( bloco.x, bloco.y, bloco.largura, bloco.altura);
+
+	validaColisaoRetanguloInimigos(hitboxBloco, inimigos);
+
+	validaColisaoEntreInimigos(inimigos);
 
 }
 
@@ -609,14 +672,16 @@ int main(int argc, char **argv){
 			atualizaNave(&nave);
 			desenhaNave(nave);
 
-			atualizaBloco(&bloco);
-			desenhaBloco(bloco);
-
 			atualizaInimigos(inimigos);
 			desenhaInimigos(inimigos);
 
-			playing = !validaColisaoNave(nave, bloco, inimigos); 
+			atualizaBloco(&bloco);
+			desenhaBloco(bloco);
+
 			validaColisaoTiro(&nave, bloco, inimigos);
+			validaColisaoInimigos(inimigos, bloco);
+			playing = !validaColisaoNave(nave, bloco, inimigos); 
+
 			//atualiza a tela (quando houver algo para mostrar)
 			al_flip_display();
 			
