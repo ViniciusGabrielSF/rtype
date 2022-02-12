@@ -145,7 +145,7 @@ void initInimigo(Inimigo * inimigo,  int id){
 	inimigo->raio = (rand() % RAIO_MAXIMO_INIMIGO) + RAIO_MINIMO_INIMIGO; 
 
 	int diametro = inimigo->raio * 2;
-	inimigo->xCentro = ( 2 * SCREEN_W ) + rand() % (SCREEN_W); 
+	inimigo->xCentro = ( 1.3 * SCREEN_W ) + rand() % (SCREEN_W); 
 	inimigo->yCentro = inimigo->raio +  (rand() % (SCREEN_H - diametro));
 
 	inimigo->cor = al_map_rgb(rand(),rand(),rand());
@@ -359,7 +359,6 @@ int validaColisaoCirculoRetangulo(Circulo circulo, Retangulo retangulo){
 	}
 	
 	
-	// Acho q Se eu não verificar a colisão dos cantos, a hitbox fica mais realista em relação à imagem usada
 	// valida colisao canto superior esquerdo
 	if( calculaDistanciaPontos(circulo.xCentro, circulo.yCentro, retangulo.x, retangulo.y) <= circulo.raio){
 		return 1;
