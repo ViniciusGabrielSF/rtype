@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
+#include <stdlib.h>
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_ttf.h>
@@ -57,6 +58,7 @@ typedef struct Nave {
 	ALLEGRO_BITMAP *imagem;
 	Circulo hitbox;
 	Tiro tiro;
+	int pontuacao;
 } Nave;
 
 typedef struct Bloco {
@@ -121,6 +123,8 @@ void initNave(Nave * nave){
 	nave->velocidade = VELOCIDADE_NAVE;
 
 	nave->imagem = al_load_bitmap("swordfish.png");
+
+	nave->pontuacao = 0;
 
 	atualizaHitboxNave(nave);
 	initTiro(nave);
@@ -385,14 +389,14 @@ int validaColisaoCirculos(Circulo primeiro, Circulo segundo){
 	 return calculaDistanciaPontos(primeiro.xCentro, primeiro.yCentro, segundo.xCentro, segundo.yCentro) <= primeiro.raio + segundo.raio;
 }
 
-int validaColisaoCirculoInimigos(Circulo circulo, Inimigo inimigos[]){
+float validaColisaoCirculoInimigos(Circulo circulo, Inimigo inimigos[]){
 		Circulo hitboxInimigo;
-		int i;
+		int i, raio;
 		for(i=0; i < QUANTIDADE_INIMIGOS; i++ ){
 			hitboxInimigo = criaCirculo(inimigos[i].xCentro, inimigos[i].yCentro, inimigos[i].raio);
 			if( validaColisaoCirculos(circulo, hitboxInimigo)){
 				destroiInimigo(&inimigos[i]);
-				return 1;
+				return hitboxInimigo.raio;
 			}
 		}
 
@@ -444,7 +448,9 @@ void validaColisaoTiro(Nave * nave, Bloco bloco, Inimigo inimigos[]){
 		destroiTiro(nave);
 	}
 
-	if( validaColisaoCirculoInimigos(hitboxTiro, inimigos)){
+	int raioInimigoColisao = (int) validaColisaoCirculoInimigos(hitboxTiro, inimigos);
+	if(raioInimigoColisao ){
+		nave->pontuacao += (raioInimigoColisao / 5);
 		if( nave->tiro.raio < RAIO_MAXIMO_TIRO ){
 			destroiTiro(nave);
 		}
@@ -552,8 +558,68 @@ void manipulaEventoTeclado( int tipoEvento, int teclaEvento,  Nave * nave ){
 
 
 
+// ------------------------- Exibicoes -----------------------------
+
+void exibePontuacaoParcial(ALLEGRO_FONT *fonte, int pontuacao){
+	char textoPontuacao[100];
+	sprintf(textoPontuacao, "%d", pontuacao);	
+	al_draw_text(fonte, al_map_rgb(255, 255, 255), 10,10, 0, textoPontuacao);
+}
+
+
+int obterRecorde(){
+	FILE *arq;
+    int recorde;
+    arq = fopen("recorde.txt", "r");
+    
+    while(feof(arq) == 0) {
+       fscanf(arq, "%d", &recorde);
+    }
+    fclose(arq);
+    return recorde;
+
+}
+
+void escreverRecorde(int recorde){
+	FILE *arq;
+
+	arq = fopen("recorde.txt", "w");
+    fprintf(arq, "%d", recorde);
+    fclose(arq); 
+	return;
+}
+
+void exibePontuacaoFinal( ALLEGRO_FONT *fonte, int pontuacao){
+	al_clear_to_color(COR_CENARIO);
+
+	char textoPontuacao[100],  textoRecorde[100];	
+	int recorde = obterRecorde();
+
+
+	if(recorde < pontuacao){
+		sprintf(textoRecorde, "NOVO RECORDE!");	
+		escreverRecorde(pontuacao);
+	} else {
+		sprintf(textoRecorde, "Recorde: %d",recorde);	
+	}
+
+	sprintf(textoPontuacao, "Pontuacao: %d", pontuacao);	
+	al_draw_text(fonte, al_map_rgb(255, 255, 255), SCREEN_W/2, SCREEN_H/3, ALLEGRO_ALIGN_CENTER, textoPontuacao);
+	al_draw_text(fonte, al_map_rgb(255, 255, 255), SCREEN_W/2, SCREEN_H/2, ALLEGRO_ALIGN_CENTER, textoRecorde);
+
+	
+	//reinicializa a tela
+	al_flip_display();	
+    al_rest(3);		
+}
+
+
+
+
 
 // ------------------------------ jogo -------------------------------
+
+
 
 
 
@@ -618,8 +684,8 @@ int main(int argc, char **argv){
 	}
 	
 	//carrega o arquivo arial.ttf da fonte Arial e define que sera usado o tamanho 32 (segundo parametro)
-    ALLEGRO_FONT *size_32 = al_load_font("arial.ttf", 32, 1);   
-	if(size_32 == NULL) {
+    ALLEGRO_FONT *arial32 = al_load_font("arial.ttf", 32, 1);   
+	if(arial32 == NULL) {
 		fprintf(stderr, "font file does not exist or cannot be accessed!\n");
 	}
 
@@ -678,6 +744,8 @@ int main(int argc, char **argv){
 			atualizaBloco(&bloco);
 			desenhaBloco(bloco);
 
+			exibePontuacaoParcial(arial32, nave.pontuacao);
+
 			validaColisaoTiro(&nave, bloco, inimigos);
 			validaColisaoInimigos(inimigos, bloco);
 			playing = !validaColisaoNave(nave, bloco, inimigos); 
@@ -700,8 +768,10 @@ int main(int argc, char **argv){
 	} //fim do while
      
 	//procedimentos de fim de jogo (fecha a tela, limpa a memoria, etc)
-	
- 
+	exibePontuacaoFinal(arial32, nave.pontuacao);
+
+
+	al_destroy_bitmap(nave.imagem);
 	al_destroy_timer(timer);
 	al_destroy_display(display);
 	al_destroy_event_queue(event_queue);
