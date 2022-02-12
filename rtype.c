@@ -567,10 +567,14 @@ void exibePontuacaoParcial(ALLEGRO_FONT *fonte, int pontuacao){
 
 
 int obterRecorde(){
-	FILE *arq;
-    int recorde;
+	FILE *arq = NULL;
+    int recorde = 0;
     arq = fopen("recorde.txt", "r");
     
+	if(arq == NULL){
+		return 0;
+	}
+	
     while(feof(arq) == 0) {
        fscanf(arq, "%d", &recorde);
     }
@@ -622,10 +626,7 @@ void exibePontuacaoFinal( ALLEGRO_FONT *fonte, int pontuacao){
 
 
 
-// TODOs
-// colisao entre inimigos
-// colisao entre inimigo e bloco
-// testar interações nave tiro e inimigos
+
 int main(int argc, char **argv){
 	srand(time(NULL));
 	ALLEGRO_DISPLAY *display = NULL;
