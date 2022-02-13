@@ -402,18 +402,15 @@ float validaColisaoCirculoInimigos(Circulo circulo, Inimigo inimigos[]){
 		return 0;
 }
 
-int validaColisaoRetanguloInimigos(Retangulo retangulo, Inimigo inimigos[]){
+void validaColisaoRetanguloInimigos(Retangulo retangulo, Inimigo inimigos[]){
 		Circulo hitboxInimigo;
 		int i;
 		for(i=0; i < QUANTIDADE_INIMIGOS; i++ ){
 			hitboxInimigo = criaCirculo(inimigos[i].xCentro, inimigos[i].yCentro, inimigos[i].raio);
 			if( validaColisaoCirculoRetangulo(hitboxInimigo, retangulo)){
 				destroiInimigo(&inimigos[i]);
-				return 1;
 			}
 		}
-
-		return 0;
 }
 
 
